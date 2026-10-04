@@ -6,12 +6,14 @@ import {
   RateLimitError,
   TypeSafeClient,
   noul,
+  type NoulQuestion,
   type Questions,
 } from "@typesafe-ai/sdk";
 import {
   buildResults,
   collectLeaves,
   noulPassed,
+  type Leaf,
   type RuleResult,
 } from "@/lib/check";
 import type { Rule } from "@/lib/rules";
@@ -50,6 +52,30 @@ export type JudgeResult =
   | { ok: true; results: RuleResult[] }
   | { ok: false; reason: TypeSafeFailure };
 
+const quote = (text: string) => `"${text}"`;
+
+/**
+ * The question for one rule. A sub-rule such as "Must include time" means
+ * little alone, so it is asked together with the rules it sits under, and the
+ * criteria spell out that a match about some unrelated matter does not count.
+ * This wording was the most accurate of nine tried against Jev on sample
+ * texts; test again on real cases before changing it.
+ */
+function leafQuestion(leaf: Leaf): NoulQuestion {
+  if (!leaf.ancestors.length) {
+    return noul(`Does the text satisfy this rule: ${quote(leaf.text)}?`);
+  }
+  const parent = quote(leaf.ancestors[leaf.ancestors.length - 1]);
+  const rule = quote(leaf.text);
+  return noul(
+    `Rule: ${leaf.ancestors.map(quote).join(", and within it ")}. A specific requirement within that rule: ${rule}. Does the text satisfy this specific requirement as it applies to that rule?`,
+    {
+      true: `The text satisfies ${rule} as it applies to ${parent}`,
+      false: `The text does not satisfy ${rule} as it applies to ${parent}, even if it mentions something similar about an unrelated matter`,
+    },
+  );
+}
+
 /**
  * Judges a text against a rule tree in one Jev request. The text is the
  * state. Only rules without sub-rules are put to the model, each as its own
@@ -63,9 +89,7 @@ export async function judge(
   const leaves = collectLeaves(rules);
   const questions: Questions = {};
   leaves.forEach((leaf, index) => {
-    questions[`rule_${index}`] = noul(
-      `Does the text satisfy this rule: "${leaf.text}"?`,
-    );
+    questions[`rule_${index}`] = leafQuestion(leaf);
   });
 
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import Link from "next/link";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const failureMessages: Record<Failure, string> = {
 const needsSettings = (reason: Failure) =>
   reason === "no_api_key" || reason === "invalid_api_key";
 
+/** Tick, cross, or an empty dashed circle before a check has run. */
 function Mark({ result }: { result?: RuleResult }) {
   if (!result) {
     return (
@@ -62,11 +63,74 @@ function Mark({ result }: { result?: RuleResult }) {
   );
 }
 
-function RuleRow({ rule, result }: { rule: Rule; result?: RuleResult }) {
+type RowProps = {
+  rule: Rule;
+  result?: RuleResult;
+  /** Where the rule sits in the tree, such as "0.2.1" */
+  path: string;
+  expanded: Set<string>;
+  onToggle: (path: string) => void;
+  nested?: boolean;
+};
+
+/**
+ * One rule. A rule with sub-rules is a button: closed, it carries the mark
+ * for all its sub-rules together; open, it gives the mark up to them.
+ */
+function RuleRow({ rule, result, path, expanded, onToggle, nested }: RowProps) {
+  const padding = nested ? "py-2" : "py-3.5";
+
+  if (!rule.children.length) {
+    return (
+      <li className={cn("flex gap-3", padding)}>
+        <Mark result={result} />
+        <span>{rule.text}</span>
+      </li>
+    );
+  }
+
+  const open = expanded.has(path);
   return (
-    <li className="flex gap-3 py-3.5">
-      <Mark result={result} />
-      <span>{rule.text}</span>
+    <li>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => onToggle(path)}
+        className={cn(
+          "flex w-full gap-3 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          padding,
+        )}
+      >
+        {open ? (
+          // Keeps the text aligned with its neighbours while the mark is gone
+          <span aria-hidden="true" className="size-5 shrink-0" />
+        ) : (
+          <Mark result={result} />
+        )}
+        <span className="flex-1">{rule.text}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? (
+        <ul className="pb-1.5 pl-8">
+          {rule.children.map((child, index) => (
+            <RuleRow
+              key={index}
+              rule={child}
+              result={result?.children[index]}
+              path={`${path}.${index}`}
+              expanded={expanded}
+              onToggle={onToggle}
+              nested
+            />
+          ))}
+        </ul>
+      ) : null}
     </li>
   );
 }
@@ -93,11 +157,20 @@ export function CheckWorkspace({
     results: RuleResult[];
   } | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // Which rules with sub-rules are open, by path. Kept across re-checks.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [checking, startChecking] = useTransition();
 
   const ruleSet = ruleSets.find((set) => set.id === ruleSetId) ?? ruleSets[0];
   const tooLong = text.length > maxLength;
   const stale = checked !== null && checked.text !== text;
+
+  const toggle = (path: string) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
 
   const check = () => {
     setFailure(null);
@@ -153,6 +226,7 @@ export function CheckWorkspace({
                   setRuleSetId(value);
                   setChecked(null);
                   setFailure(null);
+                  setExpanded(new Set());
                 }}
                 items={ruleSets.map((set) => ({ value: set.id, label: set.name }))}
               >
@@ -208,10 +282,12 @@ export function CheckWorkspace({
             >
               {ruleSet.rules.map((rule, index) => (
                 <RuleRow
-                  // Position plus text: results belong to exactly this rule
                   key={`${ruleSet.id}-${index}`}
                   rule={rule}
                   result={checked?.results[index]}
+                  path={String(index)}
+                  expanded={expanded}
+                  onToggle={toggle}
                 />
               ))}
             </ul>

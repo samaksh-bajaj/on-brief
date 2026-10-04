@@ -3,7 +3,9 @@
 Check any text against rules you write yourself.
 
 Paste text, pick a rule set, and each rule is judged by TypeSafe's Jev model:
-a tick if the text meets the rule, a cross if it doesn't.
+a tick if the text meets the rule, a cross if it doesn't. A rule can be broken
+into sub-rules, several levels deep; it is met only when all of them are, and
+opening it shows which part fell short.
 People bring their own TypeSafe API key. Signed-out visitors can try a live
 demo that runs on the site owner's key.
 

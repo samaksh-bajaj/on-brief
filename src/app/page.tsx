@@ -9,7 +9,7 @@ import { runDemoCheckAction } from "./actions";
 const steps = [
   {
     title: "Write your rules",
-    body: "Plain English, as many as you need. Each rule is something the text either does or doesn't do.",
+    body: "Plain English, as many as you need. Break a broad rule into sub-rules to pin down exactly what it asks for.",
   },
   {
     title: "Paste your text",
@@ -17,7 +17,7 @@ const steps = [
   },
   {
     title: "See what holds up",
-    body: "A tick for every rule the text meets, and a cross for every one it misses.",
+    body: "A tick for every rule the text meets and a cross for every one it misses. Open a rule to see which part fell short.",
   },
 ];
 
@@ -48,7 +48,8 @@ export default function HomePage() {
             <p className="mt-4 max-w-[62ch] text-lg text-muted-foreground">
               Write your rules in plain English and paste a draft. OnBrief marks
               each rule as met or missed. Try it here on a sales email: the
-              check is live, and you can edit the text or paste your own.
+              check is live, and you can edit the text or paste your own. Open
+              a rule with an arrow to see which part of it was missed.
             </p>
           </div>
           <CheckWorkspace
