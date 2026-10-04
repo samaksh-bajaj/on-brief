@@ -9,7 +9,8 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 ## Commands
 
 - `npm run dev` starts the dev server
-- `npm run lint` and `npx tsc --noEmit` must pass before each commit
+- `npm test` runs the unit tests with Node's built-in runner (no test framework installed; test files import with a `.ts` extension)
+- `npm run lint`, `npx tsc --noEmit` and `npm test` must pass before each commit
 
 ## Layout
 
@@ -17,7 +18,9 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 - `src/app/(auth)/`: `login`, `signup` and the auth server actions
 - `src/app/(app)/`: the signed-in dashboard (`check`, `rule-sets`, `settings`), sharing the nav in `(app)/layout.tsx`, which also rejects signed-out visitors
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state
-- `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`, `api-key.ts`, `typesafe.ts`)
+- `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`, `api-key.ts`, `typesafe.ts`, `check.ts`)
+- `src/lib/check.ts`: result types, text limits, the score scale and the score-to-bar maths. Import-free so the tests can load it directly
+- `src/components/check-workspace.tsx`: text box plus results. Takes its rule sets and its `run` function as props so the live demo can reuse it
 - `src/lib/rules.ts`: rule types and limits shared by server and client. In the UI a `noul` rule is called "Yes or no"; never show the word "noul"
 - `src/components/rule-set-editor.tsx`: the one editor used by both `/rule-sets/new` and `/rule-sets/[id]`
 - `src/lib/supabase/server.ts`: `createClient()` acts as the signed-in user (RLS applies); `createAdminClient()` uses the secret key and bypasses RLS
@@ -46,15 +49,21 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 ## TypeSafe
 
 - SDK: `@typesafe-ai/sdk`, used only in `src/server/typesafe.ts`. Read the live docs at https://docs.typesafe.ai/llms.txt before changing how questions are asked.
+- One check is one Jev request (`judge` in `typesafe.ts`): state is `{ text }`, and each rule is its own question, so rules are judged independently.
+  - Yes-or-no rule: `noul('Does the text satisfy this rule: "<rule>"?')`, met when the probability is above 0.5.
+  - Score rule: `score('How well does the text follow this rule: "<rule>"?', SCORE_LEVELS)` with the five fixed levels in `src/lib/check.ts`. Bar fill is `score / 4`.
+- Bar colour is `fillToColor`: a CSS `color-mix` in OKLCH from `--fail` through `--warn` to `--pass`, so it changes continuously with the score.
+- Nothing about a check is stored. Text and results live only in the page's state.
 - A key is validated before saving with `client.models.list()`, which is free. A rejected key is never stored.
 - Functions in `src/server/api-key.ts` use the admin client, so they must only ever be given a user id that came from `getUserId()` / `getUser()`, never one from the browser.
 
 ## Status
 
-Commits 1 to 4 of 7 done: shell, database schema and auth, rule sets, settings (API key, log out, delete account). Check is still a placeholder.
+Commits 1 to 5 of 7 done: shell, database schema and auth, rule sets, settings, and the check page. Left: the signed-out live demo on the landing page, then polish.
 
 ## Testing notes
 
 - shadcn dialogs here are Base UI: use the `render` prop, not `asChild`, and control them with `open` / `onOpenChange`.
-- One throwaway account, `tester-two@onbrief.test`, exists in the hosted project for manual testing, with a dummy (invalid) API key. Delete it before launch.
+- One throwaway account, `tester-two@onbrief.test`, exists in the hosted project for manual testing, with two rule sets and no API key. Delete it before launch.
 - Never type a real API key into the browser during automated testing. Use made-up values in the UI, and set real ones through `set_typesafe_key` if a working key is needed.
+- Browser automation sometimes drops clicks made by element reference and keystrokes sent straight after a navigation. Click by coordinate, wait for the page, and confirm the field's value before trusting a result.

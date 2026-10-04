@@ -56,6 +56,23 @@ export async function listRuleSets(): Promise<RuleSetSummary[]> {
   });
 }
 
+/** Every rule set with its rules, for the check page. */
+export async function listRuleSetsWithRules(): Promise<RuleSet[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("rule_sets")
+    .select("id, name, rules(type, text, position)")
+    .order("updated_at", { ascending: false })
+    .order("position", { referencedTable: "rules" });
+  if (error || !data) return [];
+
+  return data.map((set) => ({
+    id: set.id as string,
+    name: set.name as string,
+    rules: (set.rules as Rule[]).map(({ type, text }) => ({ type, text })),
+  }));
+}
+
 export async function getRuleSet(id: string): Promise<RuleSet | null> {
   const supabase = await createClient();
   const { data, error } = await supabase

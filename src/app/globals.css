@@ -61,9 +61,9 @@
   --radius: 0.375rem;
 
   /* Result colours: used on check results only */
-  --fail: #d64545;
-  --warn: #e0a82e;
-  --pass: #2e9e6b;
+  --fail: #dc4444;
+  --warn: #f0c52e;
+  --pass: #1fa866;
 }
 
 @layer base {
