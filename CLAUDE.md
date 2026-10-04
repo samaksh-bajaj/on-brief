@@ -46,6 +46,10 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 - Hosted project `OnBrief`, ref `imjmcolitaqwvhmfzomn`, region ap-south-1. Keys are in `.env.local` (see `.env.example`).
 - Auth is email + password. The app cannot send email, so `signUp` creates users through the admin API with `email_confirm: true`. There is no password reset.
 - `rule_sets` and `rules` are protected by owner-only RLS. `save_rule_set()` writes a set and replaces its rules in one transaction, as the caller.
+- Rules nest through `rules.parent_id` (null for top-level rules; `position` orders siblings). A composite foreign key keeps a sub-rule in the same rule set as its parent, and deleting a parent deletes its sub-rules.
+- `save_rule_set()` takes a tree, `[{ "text", "children": [...] }]`, written by the recursive `insert_rules()`. Limits enforced there: 4 levels, 60 rules per set. A flat list still works.
+- `rules.type` is obsolete (every rule is yes-or-no) and always `'noul'`. It is kept only until the nested-rules app code is deployed; then a cleanup migration drops it.
+- Local and live share this one database, and pushing to `main` deploys. Migrations must work with the code that is live at the time, and nothing is pushed without the owner saying so.
 - TypeSafe keys are Vault secrets. `user_api_keys` holds only the secret id and last four characters, and has no RLS policies on purpose (the "RLS enabled, no policy" advisor note is expected). `set_typesafe_key`, `get_typesafe_key` and `delete_typesafe_key` are callable by the service role only. Deleting the row, or the account, deletes the Vault secret through a trigger.
 
 ## TypeSafe
@@ -62,7 +66,9 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 
 ## Status
 
-All seven planned commits are done. The app is feature complete for the first version and has not been deployed.
+Version 1 is deployed at https://on-brief.vercel.app.
+
+In progress: nested rules, and removing score rules so every rule is yes-or-no (plan in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`). Step 1 of 5 done: the database supports nesting. The app code does not use it yet and still offers score rules, which the database now stores as yes-or-no.
 
 Known gaps: no password reset (no email sending), no rate limit on the live demo beyond the owner's TypeSafe spending cap, and leaked-password protection is off in Supabase Auth.
 
