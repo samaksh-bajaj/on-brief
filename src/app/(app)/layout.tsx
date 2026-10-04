@@ -1,6 +1,10 @@
+import { redirect } from "next/navigation";
 import { SiteNav } from "@/components/site-nav";
+import { getUserId } from "@/lib/supabase/server";
 
-export default function AppLayout({ children }: LayoutProps<"/">) {
+export default async function AppLayout({ children }: LayoutProps<"/">) {
+  if (!(await getUserId())) redirect("/login");
+
   return (
     <>
       <SiteNav />

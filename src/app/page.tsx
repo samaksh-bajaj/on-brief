@@ -7,9 +7,14 @@ export default function HomePage() {
     <>
       <header className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <Wordmark />
-        <Link href="/check" className={buttonVariants({ variant: "ghost" })}>
-          Open the dashboard
-        </Link>
+        <nav aria-label="Account" className="flex items-center gap-2">
+          <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
+            Log in
+          </Link>
+          <Link href="/signup" className={buttonVariants()}>
+            Create account
+          </Link>
+        </nav>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-12 sm:px-6 sm:py-20">
         <h1 className="max-w-[18ch] text-4xl font-bold tracking-tight text-balance sm:text-6xl">
