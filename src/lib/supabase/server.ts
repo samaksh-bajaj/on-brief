@@ -34,9 +34,13 @@ export function createAdminClient() {
   });
 }
 
-/** The signed-in user's id, or null. Verified with the auth server. */
-export async function getUserId(): Promise<string | null> {
+/** The signed-in user, or null. Verified with the auth server. */
+export async function getUser(): Promise<{ id: string; email: string } | null> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  return data.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
+}
+
+export async function getUserId(): Promise<string | null> {
+  return (await getUser())?.id ?? null;
 }

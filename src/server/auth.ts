@@ -63,3 +63,19 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
 }
+
+export type DeleteAccountResult = { ok: true } | { ok: false; reason: "failed" };
+
+/**
+ * Deletes the account and everything it owns. Rule sets, rules and the stored
+ * API key (with its Vault secret) go with it through cascades in the database.
+ */
+export async function deleteAccount(userId: string): Promise<DeleteAccountResult> {
+  const { error } = await createAdminClient().auth.admin.deleteUser(userId);
+  if (error) return { ok: false, reason: "failed" };
+
+  // The session now points at a user that no longer exists; drop the cookies.
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "local" });
+  return { ok: true };
+}
