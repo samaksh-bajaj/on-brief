@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -34,12 +35,17 @@ export function createAdminClient() {
   });
 }
 
-/** The signed-in user, or null. Verified with the auth server. */
-export async function getUser(): Promise<{ id: string; email: string } | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
-}
+/**
+ * The signed-in user, or null. Verified with the auth server, once per
+ * request: the layout and the page both ask, and share the answer.
+ */
+export const getUser = cache(
+  async (): Promise<{ id: string; email: string } | null> => {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
+  },
+);
 
 export async function getUserId(): Promise<string | null> {
   return (await getUser())?.id ?? null;

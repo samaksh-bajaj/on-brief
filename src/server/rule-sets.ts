@@ -1,10 +1,15 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
+  buildRuleTree,
+  countRules,
+  MAX_DEPTH,
   MAX_NAME_LENGTH,
   MAX_RULE_LENGTH,
   MAX_RULES,
+  ruleDepth,
   type Rule,
+  type RuleRow,
   type RuleSet,
   type RuleSetSummary,
 } from "@/lib/rules";
@@ -23,6 +28,7 @@ export type SaveRuleSetResult =
         | "name_too_long"
         | "no_rules"
         | "too_many_rules"
+        | "too_deep"
         | "rule_empty"
         | "rule_too_long"
         | "not_found"
@@ -33,18 +39,22 @@ export type DeleteRuleSetResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "failed" };
 
+const RULE_COLUMNS = "id, parent_id, text, position";
+
 export async function listRuleSets(): Promise<RuleSetSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(id)")
+    .select("id, name, rules(parent_id)")
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
 
   return data.map((set) => ({
     id: set.id as string,
     name: set.name as string,
-    ruleCount: (set.rules as unknown[]).length,
+    ruleCount: (set.rules as { parent_id: string | null }[]).filter(
+      (rule) => rule.parent_id === null,
+    ).length,
   }));
 }
 
@@ -53,15 +63,14 @@ export async function listRuleSetsWithRules(): Promise<RuleSet[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(text, position)")
-    .order("updated_at", { ascending: false })
-    .order("position", { referencedTable: "rules" });
+    .select(`id, name, rules(${RULE_COLUMNS})`)
+    .order("updated_at", { ascending: false });
   if (error || !data) return [];
 
   return data.map((set) => ({
     id: set.id as string,
     name: set.name as string,
-    rules: (set.rules as Rule[]).map(({ text }) => ({ text })),
+    rules: buildRuleTree(set.rules as RuleRow[]),
   }));
 }
 
@@ -69,18 +78,27 @@ export async function getRuleSet(id: string): Promise<RuleSet | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(text, position)")
+    .select(`id, name, rules(${RULE_COLUMNS})`)
     .eq("id", id)
-    .order("position", { referencedTable: "rules" })
     .maybeSingle();
   if (error || !data) return null;
 
   return {
     id: data.id as string,
     name: data.name as string,
-    rules: (data.rules as Rule[]).map(({ text }) => ({ text })),
+    rules: buildRuleTree(data.rules as RuleRow[]),
   };
 }
+
+/** Trims every rule and keeps only the fields we store. */
+const clean = (rules: Rule[]): Rule[] =>
+  (Array.isArray(rules) ? rules : []).map((rule) => ({
+    text: String(rule?.text ?? "").trim(),
+    children: clean(rule?.children),
+  }));
+
+const some = (rules: Rule[], test: (rule: Rule) => boolean): boolean =>
+  rules.some((rule) => test(rule) || some(rule.children, test));
 
 /** Creates a rule set, or replaces the name and rules of an existing one. */
 export async function saveRuleSet(
@@ -90,15 +108,12 @@ export async function saveRuleSet(
   if (!name) return { ok: false, reason: "name_required" };
   if (name.length > MAX_NAME_LENGTH) return { ok: false, reason: "name_too_long" };
 
-  const rules = input.rules.map((rule) => ({
-    text: String(rule.text ?? "").trim(),
-  }));
+  const rules = clean(input.rules);
   if (!rules.length) return { ok: false, reason: "no_rules" };
-  if (rules.length > MAX_RULES) return { ok: false, reason: "too_many_rules" };
-  if (rules.some((r) => !r.text)) {
-    return { ok: false, reason: "rule_empty" };
-  }
-  if (rules.some((r) => r.text.length > MAX_RULE_LENGTH)) {
+  if (ruleDepth(rules) > MAX_DEPTH) return { ok: false, reason: "too_deep" };
+  if (countRules(rules) > MAX_RULES) return { ok: false, reason: "too_many_rules" };
+  if (some(rules, (rule) => !rule.text)) return { ok: false, reason: "rule_empty" };
+  if (some(rules, (rule) => rule.text.length > MAX_RULE_LENGTH)) {
     return { ok: false, reason: "rule_too_long" };
   }
 
@@ -109,10 +124,10 @@ export async function saveRuleSet(
     p_rules: rules,
   });
   if (error) {
-    return {
-      ok: false,
-      reason: error.message.includes("not_found") ? "not_found" : "failed",
-    };
+    const known = (["not_found", "too_deep", "too_many_rules"] as const).find(
+      (reason) => error.message.includes(reason),
+    );
+    return { ok: false, reason: known ?? "failed" };
   }
   return { ok: true, id: data as string };
 }

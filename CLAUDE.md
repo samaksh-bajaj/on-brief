@@ -21,10 +21,10 @@ Work is delivered one verified commit at a time. The current plan is in `~/.clau
 - `src/app/(app)/`: the signed-in dashboard (`check`, `rule-sets`, `settings`), sharing the nav in `(app)/layout.tsx`, which also rejects signed-out visitors
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state. It must use `getUser()`, not `getClaims()`: a deleted account's cookie still passes a local token check, and the pages then bounce it into a redirect loop
 - `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`, `api-key.ts`, `typesafe.ts`, `check.ts`)
-- `src/lib/check.ts`: result types, text limits and the pass threshold. Import-free so the tests can load it directly
+- `src/lib/check.ts`: result types, text limits, the pass threshold, and the two pure functions behind nested checking: `collectLeaves` (which rules to ask the model) and `buildResults` (a rule with sub-rules passes only if all of them do). No runtime imports, so the tests can load it directly
 - `src/components/check-workspace.tsx`: text box plus results. Takes its rule sets and its `run` function as props so the live demo can reuse it
-- `src/lib/rules.ts`: rule types and limits shared by server and client. Never show the word "noul" in the UI; a rule is just a rule
-- `src/components/rule-set-editor.tsx`: the one editor used by both `/rule-sets/new` and `/rule-sets/[id]`
+- `src/lib/rules.ts`: the `Rule` tree type (`{ text, children }`), limits, and pure helpers (`buildRuleTree`, `countRules`, `ruleDepth`). Never show the word "noul" in the UI; a rule is just a rule
+- `src/components/rule-set-editor.tsx`: the one editor used by both `/rule-sets/new` and `/rule-sets/[id]`. Rules are a tree of drafts edited through small immutable helpers (`mapNode`, `removeNode`, `moveNode`); `RuleNode` renders itself recursively
 - `src/lib/supabase/server.ts`: `createClient()` acts as the signed-in user (RLS applies); `createAdminClient()` uses the secret key and bypasses RLS
 - `supabase/migrations/`: the schema. Applied to the hosted project through the Supabase MCP `apply_migration` tool; keep the file and the applied SQL identical
 - `src/components/ui/`: shadcn components (base-nova style, built on Base UI, not Radix)
@@ -55,7 +55,7 @@ Work is delivered one verified commit at a time. The current plan is in `~/.clau
 ## TypeSafe
 
 - SDK: `@typesafe-ai/sdk`, used only in `src/server/typesafe.ts`. Read the live docs at https://docs.typesafe.ai/llms.txt before changing how questions are asked.
-- One check is one Jev request (`judge` in `typesafe.ts`): state is `{ text }`, and each rule is its own question, `noul('Does the text satisfy this rule: "<rule>"?')`, so rules are judged independently. A rule is met when the probability is above 0.5.
+- One check is one Jev request (`judge` in `typesafe.ts`): state is `{ text }`, and each rule **without sub-rules** is its own question, `noul('Does the text satisfy this rule: "<rule>"?')`, met when the probability is above 0.5. Rules with sub-rules are never sent; their result is worked out from their sub-rules.
 - There are no score rules any more; they were removed on 2026-10-04 at the owner's request. Do not reintroduce Jev `score` questions without being asked.
 - The live demo (`runDemoCheck`) uses `TYPESAFE_DEMO_API_KEY` and only ever runs the fixed demo rule set: rules never come from the browser. It caps text at 5,000 characters and reports a bad or missing owner key as `demo_unavailable`.
 - Nothing about a check is stored. Text and results live only in the page's state.
@@ -66,14 +66,14 @@ Work is delivered one verified commit at a time. The current plan is in `~/.clau
 
 Version 1 is deployed at https://on-brief.vercel.app.
 
-In progress: nested rules, and removing score rules so every rule is yes-or-no (plan in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`). Steps 1 and 2 of 5 done: the database supports nesting, and score rules are gone from the app. Rules are still flat in the app; nested editing and nested checking come next.
+In progress: nested rules, and removing score rules so every rule is yes-or-no (plan in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`). Steps 1 to 3 of 5 done: the database supports nesting, score rules are gone, and the editor builds nested rules. Checks already judge only the lowest-level rules and roll results up, but the check page shows top-level rules only. Left: expandable results, parent context in the model question, a nested demo, then dropping `rules.type` after deploy.
 
 Known gaps: no password reset (no email sending), no rate limit on the live demo beyond the owner's TypeSafe spending cap, and leaked-password protection is off in Supabase Auth.
 
 ## Testing notes
 
 - shadcn dialogs here are Base UI: use the `render` prop, not `asChild`, and control them with `open` / `onOpenChange`.
-- One throwaway account, `tester-three@onbrief.test`, exists while nested rules are being built (one rule set, a working key). Delete it when that work is done.
+- One throwaway account, `tester-three@onbrief.test`, exists while nested rules are being built (a flat "Sales email" set, the three-level "Supplier quote" set, and a working key). Delete it when that work is done.
 - Never type a real API key into the browser during automated testing. Use made-up values in the UI, and set real ones through `set_typesafe_key` if a working key is needed.
 - Browser automation sometimes drops clicks made by element reference and keystrokes sent straight after a navigation. Click by coordinate, wait for the page, and confirm the field's value before trusting a result.
 - The owner often has their own session open on `localhost:3210` in the same Chrome profile. To test signed-out pages without logging them out, run `npm run build && npx next start -p 3211` and use `http://127.0.0.1:3211` (a different cookie jar; the dev server refuses that host).

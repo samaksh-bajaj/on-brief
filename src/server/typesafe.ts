@@ -8,7 +8,12 @@ import {
   noul,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { noulPassed, type RuleResult } from "@/lib/check";
+import {
+  buildResults,
+  collectLeaves,
+  noulPassed,
+  type RuleResult,
+} from "@/lib/check";
 import type { Rule } from "@/lib/rules";
 
 export type TypeSafeFailure =
@@ -46,18 +51,20 @@ export type JudgeResult =
   | { ok: false; reason: TypeSafeFailure };
 
 /**
- * Judges a text against every rule in one Jev request. The text is the state
- * and each rule is its own question, so rules are judged independently.
+ * Judges a text against a rule tree in one Jev request. The text is the
+ * state. Only rules without sub-rules are put to the model, each as its own
+ * question; a rule with sub-rules is met when all of them are.
  */
 export async function judge(
   apiKey: string,
   text: string,
   rules: Rule[],
 ): Promise<JudgeResult> {
+  const leaves = collectLeaves(rules);
   const questions: Questions = {};
-  rules.forEach((rule, index) => {
+  leaves.forEach((leaf, index) => {
     questions[`rule_${index}`] = noul(
-      `Does the text satisfy this rule: "${rule.text}"?`,
+      `Does the text satisfy this rule: "${leaf.text}"?`,
     );
   });
 
@@ -67,14 +74,14 @@ export async function judge(
       questions,
     });
 
-    const results = rules.map((rule, index): RuleResult => {
+    const leafPassed = leaves.map((_, index) => {
       const answer = answers[`rule_${index}`];
       if (answer?.type !== "noul") {
         throw new Error("TypeSafe returned an answer of the wrong type");
       }
-      return { text: rule.text, passed: noulPassed(answer.noul) };
+      return noulPassed(answer.noul);
     });
-    return { ok: true, results };
+    return { ok: true, results: buildResults(rules, leafPassed) };
   } catch (error) {
     return { ok: false, reason: classifyTypeSafeError(error) };
   }
