@@ -17,7 +17,9 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 - `src/app/(auth)/`: `login`, `signup` and the auth server actions
 - `src/app/(app)/`: the signed-in dashboard (`check`, `rule-sets`, `settings`), sharing the nav in `(app)/layout.tsx`, which also rejects signed-out visitors
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state
-- `src/server/`: server-side functions holding the real logic (`auth.ts` so far)
+- `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`)
+- `src/lib/rules.ts`: rule types and limits shared by server and client. In the UI a `noul` rule is called "Yes or no"; never show the word "noul"
+- `src/components/rule-set-editor.tsx`: the one editor used by both `/rule-sets/new` and `/rule-sets/[id]`
 - `src/lib/supabase/server.ts`: `createClient()` acts as the signed-in user (RLS applies); `createAdminClient()` uses the secret key and bypasses RLS
 - `supabase/migrations/`: the schema. Applied to the hosted project through the Supabase MCP `apply_migration` tool; keep the file and the applied SQL identical
 - `src/components/ui/`: shadcn components (base-nova style, built on Base UI, not Radix)
@@ -43,4 +45,9 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 
 ## Status
 
-Commits 1 and 2 of 7 done: shell, database schema and auth. Rule sets, settings and check pages are still placeholders (settings has only Log out).
+Commits 1 to 3 of 7 done: shell, database schema and auth, rule sets (list, create, edit, reorder, delete). Settings has only Log out; check is a placeholder.
+
+## Testing notes
+
+- shadcn dialogs here are Base UI: use the `render` prop, not `asChild`, and control them with `open` / `onOpenChange`.
+- Two throwaway accounts exist in the hosted project for manual testing: `tester-one@onbrief.test` and `tester-two@onbrief.test`. Delete them when account deletion is tested.
