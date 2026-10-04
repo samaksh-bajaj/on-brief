@@ -166,7 +166,7 @@ export function CheckWorkspace({
             placeholder="Paste your text here."
             spellCheck={false}
             aria-invalid={tooLong ? true : undefined}
-            className="mt-1.5 block min-h-72 w-full resize-y rounded-lg border border-input bg-card px-5 py-4 font-serif text-lg leading-[1.6] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive lg:min-h-[28rem]"
+            className="mt-1.5 block min-h-56 w-full resize-y rounded-lg border border-input bg-card px-5 py-4 font-serif text-lg leading-[1.6] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive lg:min-h-[28rem]"
           />
           <p
             className={cn(

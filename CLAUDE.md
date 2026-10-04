@@ -17,6 +17,7 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 - `src/app/page.tsx`: signed-out landing page, whose hero is the live demo. `src/app/actions.ts` holds its one server action
 - `src/lib/demo-rule-set.ts`: the demo's fixed rule set and sample email
 - `src/app/(auth)/`: `login`, `signup` and the auth server actions
+- `src/app/not-found.tsx`, `src/app/(app)/loading.tsx`, `src/app/(app)/error.tsx`: the fallback pages
 - `src/app/(app)/`: the signed-in dashboard (`check`, `rule-sets`, `settings`), sharing the nav in `(app)/layout.tsx`, which also rejects signed-out visitors
 - `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state
 - `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`, `api-key.ts`, `typesafe.ts`, `check.ts`)
@@ -61,12 +62,14 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 
 ## Status
 
-Commits 1 to 6 of 7 done: shell, database schema and auth, rule sets, settings, the check page and the signed-out live demo. Left: polish.
+All seven planned commits are done. The app is feature complete for the first version and has not been deployed.
+
+Known gaps: no password reset (no email sending), no rate limit on the live demo beyond the owner's TypeSafe spending cap, and leaked-password protection is off in Supabase Auth.
 
 ## Testing notes
 
 - shadcn dialogs here are Base UI: use the `render` prop, not `asChild`, and control them with `open` / `onOpenChange`.
-- One throwaway account, `tester-two@onbrief.test`, exists in the hosted project for manual testing, with two rule sets and no API key. Delete it before launch.
+- No test accounts are left in the hosted project. Create throwaway ones (`something@onbrief.test`) through the admin API when needed and delete them afterwards.
 - Never type a real API key into the browser during automated testing. Use made-up values in the UI, and set real ones through `set_typesafe_key` if a working key is needed.
 - Browser automation sometimes drops clicks made by element reference and keystrokes sent straight after a navigation. Click by coordinate, wait for the page, and confirm the field's value before trusting a result.
 - The owner often has their own session open on `localhost:3210` in the same Chrome profile. To test signed-out pages without logging them out, run `npm run build && npx next start -p 3211` and use `http://127.0.0.1:3211` (a different cookie jar; the dev server refuses that host).

@@ -28,7 +28,7 @@ export default async function RuleSetsPage() {
             <li key={set.id}>
               <Link
                 href={`/rule-sets/${set.id}`}
-                className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-4 py-3.5 outline-none hover:bg-muted focus-visible:bg-muted"
+                className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-4 py-3.5 outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
               >
                 <span className="font-medium">{set.name}</span>
                 <span className="text-sm text-muted-foreground">
