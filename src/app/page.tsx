@@ -9,7 +9,7 @@ import { runDemoCheckAction } from "./actions";
 const steps = [
   {
     title: "Write your rules",
-    body: "Plain English, as many rules as you need. Mark each as yes-or-no or as a score.",
+    body: "Plain English, as many as you need. Each rule is something the text either does or doesn't do.",
   },
   {
     title: "Paste your text",
@@ -17,7 +17,7 @@ const steps = [
   },
   {
     title: "See what holds up",
-    body: "A tick or a cross for every yes-or-no rule, and a bar for every score.",
+    body: "A tick for every rule the text meets, and a cross for every one it misses.",
   },
 ];
 
@@ -47,9 +47,8 @@ export default function HomePage() {
             </h1>
             <p className="mt-4 max-w-[62ch] text-lg text-muted-foreground">
               Write your rules in plain English and paste a draft. OnBrief marks
-              each rule as met or missed, and scores the ones that come in
-              degrees. Try it here on a sales email: the check is live, and you
-              can edit the text or paste your own.
+              each rule as met or missed. Try it here on a sales email: the
+              check is live, and you can edit the text or paste your own.
             </p>
           </div>
           <CheckWorkspace

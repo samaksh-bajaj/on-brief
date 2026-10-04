@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { PageHeading } from "@/components/page-heading";
 import { buttonVariants } from "@/components/ui/button";
-import { describeRuleCounts } from "@/lib/rules";
+import { describeRuleCount } from "@/lib/rules";
 import { listRuleSets } from "@/server/rule-sets";
 
 export const metadata = { title: "Rule sets · OnBrief" };
@@ -32,7 +32,7 @@ export default async function RuleSetsPage() {
               >
                 <span className="font-medium">{set.name}</span>
                 <span className="text-sm text-muted-foreground">
-                  {describeRuleCounts(set.noulCount, set.scoreCount)}
+                  {describeRuleCount(set.ruleCount)}
                 </span>
               </Link>
             </li>

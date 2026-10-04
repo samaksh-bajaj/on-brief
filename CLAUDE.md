@@ -2,9 +2,9 @@
 
 # OnBrief
 
-A dashboard where people paste text and check it against rule sets they write themselves. Each rule is judged by TypeSafe's Jev model: yes/no (`noul`) rules show a tick or cross, `score` rules show a red-to-green bar. Users bring their own TypeSafe key; a signed-out live demo runs on the owner's key.
+A dashboard where people paste text and check it against rule sets they write themselves. Every rule is a yes-or-no judgment made by TypeSafe's Jev model and shown as a tick or a cross. Users bring their own TypeSafe key; a signed-out live demo runs on the owner's key.
 
-The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`. It is delivered one verified commit at a time.
+Work is delivered one verified commit at a time. The current plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`.
 
 ## Commands
 
@@ -19,11 +19,11 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 - `src/app/(auth)/`: `login`, `signup` and the auth server actions
 - `src/app/not-found.tsx`, `src/app/(app)/loading.tsx`, `src/app/(app)/error.tsx`: the fallback pages
 - `src/app/(app)/`: the signed-in dashboard (`check`, `rule-sets`, `settings`), sharing the nav in `(app)/layout.tsx`, which also rejects signed-out visitors
-- `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state
+- `src/proxy.ts`: Next 16's name for middleware. Refreshes the Supabase session cookie and redirects by signed-in state. It must use `getUser()`, not `getClaims()`: a deleted account's cookie still passes a local token check, and the pages then bounce it into a redirect loop
 - `src/server/`: server-side functions holding the real logic (`auth.ts`, `rule-sets.ts`, `api-key.ts`, `typesafe.ts`, `check.ts`)
-- `src/lib/check.ts`: result types, text limits, the score scale and the score-to-bar maths. Import-free so the tests can load it directly
+- `src/lib/check.ts`: result types, text limits and the pass threshold. Import-free so the tests can load it directly
 - `src/components/check-workspace.tsx`: text box plus results. Takes its rule sets and its `run` function as props so the live demo can reuse it
-- `src/lib/rules.ts`: rule types and limits shared by server and client. In the UI a `noul` rule is called "Yes or no"; never show the word "noul"
+- `src/lib/rules.ts`: rule types and limits shared by server and client. Never show the word "noul" in the UI; a rule is just a rule
 - `src/components/rule-set-editor.tsx`: the one editor used by both `/rule-sets/new` and `/rule-sets/[id]`
 - `src/lib/supabase/server.ts`: `createClient()` acts as the signed-in user (RLS applies); `createAdminClient()` uses the secret key and bypasses RLS
 - `supabase/migrations/`: the schema. Applied to the hosted project through the Supabase MCP `apply_migration` tool; keep the file and the applied SQL identical
@@ -32,7 +32,7 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 
 ## Design
 
-- Colour tokens live in `src/app/globals.css`. Blue (`--primary`) is the only accent. `--pass`, `--warn` and `--fail` are for check results only.
+- Colour tokens live in `src/app/globals.css`. Blue (`--primary`) is the only accent. `--pass` and `--fail` are for check results only; `--warn` is for notices.
 - Schibsted Grotesk (`font-sans`) is the interface face. Newsreader (`font-serif`) is used only for the text being checked.
 - Light theme only. Sentence case everywhere; no all-caps labels.
 
@@ -55,10 +55,8 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 ## TypeSafe
 
 - SDK: `@typesafe-ai/sdk`, used only in `src/server/typesafe.ts`. Read the live docs at https://docs.typesafe.ai/llms.txt before changing how questions are asked.
-- One check is one Jev request (`judge` in `typesafe.ts`): state is `{ text }`, and each rule is its own question, so rules are judged independently.
-  - Yes-or-no rule: `noul('Does the text satisfy this rule: "<rule>"?')`, met when the probability is above 0.5.
-  - Score rule: `score('How well does the text follow this rule: "<rule>"?', SCORE_LEVELS)` with the five fixed levels in `src/lib/check.ts`. Bar fill is `score / 4`.
-- Bar colour is `fillToColor`: a CSS `color-mix` in OKLCH from `--fail` through `--warn` to `--pass`, so it changes continuously with the score.
+- One check is one Jev request (`judge` in `typesafe.ts`): state is `{ text }`, and each rule is its own question, `noul('Does the text satisfy this rule: "<rule>"?')`, so rules are judged independently. A rule is met when the probability is above 0.5.
+- There are no score rules any more; they were removed on 2026-10-04 at the owner's request. Do not reintroduce Jev `score` questions without being asked.
 - The live demo (`runDemoCheck`) uses `TYPESAFE_DEMO_API_KEY` and only ever runs the fixed demo rule set: rules never come from the browser. It caps text at 5,000 characters and reports a bad or missing owner key as `demo_unavailable`.
 - Nothing about a check is stored. Text and results live only in the page's state.
 - A key is validated before saving with `client.models.list()`, which is free. A rejected key is never stored.
@@ -68,14 +66,14 @@ The full build plan is in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wal
 
 Version 1 is deployed at https://on-brief.vercel.app.
 
-In progress: nested rules, and removing score rules so every rule is yes-or-no (plan in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`). Step 1 of 5 done: the database supports nesting. The app code does not use it yet and still offers score rules, which the database now stores as yes-or-no.
+In progress: nested rules, and removing score rules so every rule is yes-or-no (plan in `~/.claude/plans/create-onbrief-a-dashboard-quirky-wall.md`). Steps 1 and 2 of 5 done: the database supports nesting, and score rules are gone from the app. Rules are still flat in the app; nested editing and nested checking come next.
 
 Known gaps: no password reset (no email sending), no rate limit on the live demo beyond the owner's TypeSafe spending cap, and leaked-password protection is off in Supabase Auth.
 
 ## Testing notes
 
 - shadcn dialogs here are Base UI: use the `render` prop, not `asChild`, and control them with `open` / `onOpenChange`.
-- No test accounts are left in the hosted project. Create throwaway ones (`something@onbrief.test`) through the admin API when needed and delete them afterwards.
+- One throwaway account, `tester-three@onbrief.test`, exists while nested rules are being built (one rule set, a working key). Delete it when that work is done.
 - Never type a real API key into the browser during automated testing. Use made-up values in the UI, and set real ones through `set_typesafe_key` if a working key is needed.
 - Browser automation sometimes drops clicks made by element reference and keystrokes sent straight after a navigation. Click by coordinate, wait for the page, and confirm the field's value before trusting a result.
 - The owner often has their own session open on `localhost:3210` in the same Chrome profile. To test signed-out pages without logging them out, run `npm run build && npx next start -p 3211` and use `http://127.0.0.1:3211` (a different cookie jar; the dev server refuses that host).

@@ -6,15 +6,9 @@ import {
   RateLimitError,
   TypeSafeClient,
   noul,
-  score,
   type Questions,
 } from "@typesafe-ai/sdk";
-import {
-  noulPassed,
-  SCORE_LEVELS,
-  scoreToFill,
-  type RuleResult,
-} from "@/lib/check";
+import { noulPassed, type RuleResult } from "@/lib/check";
 import type { Rule } from "@/lib/rules";
 
 export type TypeSafeFailure =
@@ -62,13 +56,9 @@ export async function judge(
 ): Promise<JudgeResult> {
   const questions: Questions = {};
   rules.forEach((rule, index) => {
-    questions[`rule_${index}`] =
-      rule.type === "noul"
-        ? noul(`Does the text satisfy this rule: "${rule.text}"?`)
-        : score(
-            `How well does the text follow this rule: "${rule.text}"?`,
-            SCORE_LEVELS,
-          );
+    questions[`rule_${index}`] = noul(
+      `Does the text satisfy this rule: "${rule.text}"?`,
+    );
   });
 
   try {
@@ -79,17 +69,10 @@ export async function judge(
 
     const results = rules.map((rule, index): RuleResult => {
       const answer = answers[`rule_${index}`];
-      if (rule.type === "noul" && answer?.type === "noul") {
-        return { type: "noul", text: rule.text, passed: noulPassed(answer.noul) };
+      if (answer?.type !== "noul") {
+        throw new Error("TypeSafe returned an answer of the wrong type");
       }
-      if (rule.type === "score" && answer?.type === "score") {
-        return {
-          type: "score",
-          text: rule.text,
-          fill: scoreToFill(answer.score, SCORE_LEVELS.length),
-        };
-      }
-      throw new Error("TypeSafe returned an answer of the wrong type");
+      return { text: rule.text, passed: noulPassed(answer.noul) };
     });
     return { ok: true, results };
   } catch (error) {

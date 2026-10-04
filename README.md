@@ -3,7 +3,7 @@
 Check any text against rules you write yourself.
 
 Paste text, pick a rule set, and each rule is judged by TypeSafe's Jev model:
-a tick or a cross for yes-or-no rules, and a red-to-green bar for score rules.
+a tick if the text meets the rule, a cross if it doesn't.
 People bring their own TypeSafe API key. Signed-out visitors can try a live
 demo that runs on the site owner's key.
 

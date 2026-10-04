@@ -31,8 +31,11 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const { data } = await supabase.auth.getClaims();
-  const signedIn = Boolean(data?.claims);
+  // Ask the auth server, not just the cookie: a deleted account can still hold
+  // a valid-looking token, and trusting it here while the pages reject it
+  // sends the browser round in a redirect loop.
+  const { data } = await supabase.auth.getUser();
+  const signedIn = Boolean(data.user);
   const { pathname } = request.nextUrl;
 
   const redirectTo = (path: string) => {

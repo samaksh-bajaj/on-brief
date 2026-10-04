@@ -7,7 +7,6 @@ import {
   type Rule,
   type RuleSet,
   type RuleSetSummary,
-  type RuleType,
 } from "@/lib/rules";
 
 // Every function here runs as the signed-in user, so row level security
@@ -34,26 +33,19 @@ export type DeleteRuleSetResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "failed" };
 
-const isRuleType = (value: unknown): value is RuleType =>
-  value === "noul" || value === "score";
-
 export async function listRuleSets(): Promise<RuleSetSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(type)")
+    .select("id, name, rules(id)")
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
 
-  return data.map((set) => {
-    const rules = set.rules as { type: RuleType }[];
-    return {
-      id: set.id as string,
-      name: set.name as string,
-      noulCount: rules.filter((r) => r.type === "noul").length,
-      scoreCount: rules.filter((r) => r.type === "score").length,
-    };
-  });
+  return data.map((set) => ({
+    id: set.id as string,
+    name: set.name as string,
+    ruleCount: (set.rules as unknown[]).length,
+  }));
 }
 
 /** Every rule set with its rules, for the check page. */
@@ -61,7 +53,7 @@ export async function listRuleSetsWithRules(): Promise<RuleSet[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(type, text, position)")
+    .select("id, name, rules(text, position)")
     .order("updated_at", { ascending: false })
     .order("position", { referencedTable: "rules" });
   if (error || !data) return [];
@@ -69,7 +61,7 @@ export async function listRuleSetsWithRules(): Promise<RuleSet[]> {
   return data.map((set) => ({
     id: set.id as string,
     name: set.name as string,
-    rules: (set.rules as Rule[]).map(({ type, text }) => ({ type, text })),
+    rules: (set.rules as Rule[]).map(({ text }) => ({ text })),
   }));
 }
 
@@ -77,7 +69,7 @@ export async function getRuleSet(id: string): Promise<RuleSet | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("rule_sets")
-    .select("id, name, rules(type, text, position)")
+    .select("id, name, rules(text, position)")
     .eq("id", id)
     .order("position", { referencedTable: "rules" })
     .maybeSingle();
@@ -86,7 +78,7 @@ export async function getRuleSet(id: string): Promise<RuleSet | null> {
   return {
     id: data.id as string,
     name: data.name as string,
-    rules: (data.rules as Rule[]).map(({ type, text }) => ({ type, text })),
+    rules: (data.rules as Rule[]).map(({ text }) => ({ text })),
   };
 }
 
@@ -99,12 +91,11 @@ export async function saveRuleSet(
   if (name.length > MAX_NAME_LENGTH) return { ok: false, reason: "name_too_long" };
 
   const rules = input.rules.map((rule) => ({
-    type: rule.type,
     text: String(rule.text ?? "").trim(),
   }));
   if (!rules.length) return { ok: false, reason: "no_rules" };
   if (rules.length > MAX_RULES) return { ok: false, reason: "too_many_rules" };
-  if (rules.some((r) => !r.text || !isRuleType(r.type))) {
+  if (rules.some((r) => !r.text)) {
     return { ok: false, reason: "rule_empty" };
   }
   if (rules.some((r) => r.text.length > MAX_RULE_LENGTH)) {

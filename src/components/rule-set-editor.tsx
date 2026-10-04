@@ -26,14 +26,11 @@ import {
   MAX_NAME_LENGTH,
   MAX_RULE_LENGTH,
   MAX_RULES,
-  ruleTypeLabels,
   type RuleSet,
-  type RuleType,
 } from "@/lib/rules";
 import type { SaveRuleSetResult } from "@/server/rule-sets";
-import { cn } from "@/lib/utils";
 
-type DraftRule = { key: number; type: RuleType; text: string };
+type DraftRule = { key: number; text: string };
 
 type SaveFailure = Extract<SaveRuleSetResult, { ok: false }>["reason"];
 
@@ -48,18 +45,13 @@ const saveErrors: Record<SaveFailure, string> = {
   failed: "The rule set could not be saved. Try again.",
 };
 
-const typeHelp: Record<RuleType, string> = {
-  noul: "The text either meets the rule or it doesn't. Shown as a tick or a cross.",
-  score: "How well the text meets the rule. Shown as a bar from red to green.",
-};
-
 export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
   const router = useRouter();
   const nextKey = useRef(ruleSet?.rules.length ?? 1);
   const [name, setName] = useState(ruleSet?.name ?? "");
   const [rules, setRules] = useState<DraftRule[]>(
-    ruleSet?.rules.map((rule, key) => ({ key, ...rule })) ?? [
-      { key: 0, type: "noul", text: "" },
+    ruleSet?.rules.map((rule, key) => ({ key, text: rule.text })) ?? [
+      { key: 0, text: "" },
     ],
   );
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +75,7 @@ export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
   const addRule = () => {
     const key = nextKey.current++;
     setAddedKey(key);
-    // New rules start as the same type as the one above them
-    setRules((rs) => [...rs, { key, type: rs.at(-1)?.type ?? "noul", text: "" }]);
+    setRules((rs) => [...rs, { key, text: "" }]);
   };
 
   const save = () => {
@@ -93,7 +84,7 @@ export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
       const result = await saveRuleSetAction({
         id: ruleSet?.id,
         name,
-        rules: rules.map(({ type, text }) => ({ type, text })),
+        rules: rules.map(({ text }) => ({ text })),
       });
       if (!result.ok) {
         setError(saveErrors[result.reason]);
@@ -139,16 +130,10 @@ export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
       </div>
 
       <h2 className="mt-10 text-lg font-semibold tracking-tight">Rules</h2>
-      <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm text-muted-foreground sm:grid-cols-2">
-        {(["noul", "score"] as const).map((type) => (
-          <div key={type}>
-            <dt className="inline font-medium text-foreground">
-              {ruleTypeLabels[type]}:{" "}
-            </dt>
-            <dd className="inline">{typeHelp[type]}</dd>
-          </div>
-        ))}
-      </dl>
+      <p className="mt-1 max-w-[65ch] text-sm text-muted-foreground">
+        Write each rule so the answer is yes or no: the text either meets it or
+        it doesn&apos;t.
+      </p>
 
       <ol className="mt-5 flex flex-col gap-3">
         {rules.map((rule, index) => (
@@ -156,29 +141,10 @@ export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
             key={rule.key}
             className="rounded-lg border bg-card p-3 sm:p-4"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <fieldset className="inline-flex rounded-md border bg-muted p-0.5">
-                <legend className="sr-only">Type of rule {index + 1}</legend>
-                {(["noul", "score"] as const).map((type) => (
-                  <label
-                    key={type}
-                    className={cn(
-                      "cursor-pointer rounded-[5px] px-2.5 py-1 text-sm font-medium text-muted-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-                      rule.type === type &&
-                        "bg-card text-foreground shadow-[0_0_0_1px_var(--border)]",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name={`rule-type-${rule.key}`}
-                      className="sr-only"
-                      checked={rule.type === type}
-                      onChange={() => update(rule.key, { type })}
-                    />
-                    {ruleTypeLabels[type]}
-                  </label>
-                ))}
-              </fieldset>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Rule {index + 1}
+              </span>
               <div className="flex items-center gap-0.5">
                 <Button
                   type="button"
@@ -217,16 +183,12 @@ export function RuleSetEditor({ ruleSet }: { ruleSet?: RuleSet }) {
             <Textarea
               aria-label={`Rule ${index + 1}`}
               autoFocus={rule.key === addedKey}
-              className="mt-3 min-h-0"
+              className="mt-2 min-h-0"
               rows={2}
               value={rule.text}
               onChange={(event) => update(rule.key, { text: event.target.value })}
               maxLength={MAX_RULE_LENGTH}
-              placeholder={
-                rule.type === "noul"
-                  ? "Asks for one specific next step"
-                  : "Gets to the point quickly"
-              }
+              placeholder="Asks for one specific next step"
             />
           </li>
         ))}

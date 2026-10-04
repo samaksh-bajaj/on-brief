@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fillToColor, type RuleResult } from "@/lib/check";
+import type { RuleResult } from "@/lib/check";
 import type { Rule, RuleSet } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 import type { CheckResult } from "@/server/check";
@@ -36,7 +36,7 @@ const failureMessages: Record<Failure, string> = {
 const needsSettings = (reason: Failure) =>
   reason === "no_api_key" || reason === "invalid_api_key";
 
-function Mark({ result }: { result?: RuleResult & { type: "noul" } }) {
+function Mark({ result }: { result?: RuleResult }) {
   if (!result) {
     return (
       <span
@@ -62,51 +62,11 @@ function Mark({ result }: { result?: RuleResult & { type: "noul" } }) {
   );
 }
 
-function ScoreBar({ result }: { result?: RuleResult & { type: "score" } }) {
-  const percent = result ? Math.round(result.fill * 100) : 0;
-  return (
-    <div className="mt-2 flex items-center gap-3">
-      <div
-        role="meter"
-        aria-label="Score"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={result ? percent : undefined}
-        aria-valuetext={result ? `${percent} out of 100` : "Not checked yet"}
-        className="h-2 flex-1 overflow-hidden rounded-full bg-muted"
-      >
-        <div
-          className="h-full rounded-full transition-[width,background-color] duration-700 ease-out motion-reduce:transition-none"
-          style={{
-            // A sliver stays visible at zero, so an empty bar still reads as red
-            width: result ? `${Math.max(percent, 3)}%` : "0%",
-            backgroundColor: fillToColor(result?.fill ?? 0),
-          }}
-        />
-      </div>
-      <span
-        aria-hidden="true"
-        className="w-8 text-right text-sm font-medium tabular-nums text-muted-foreground"
-      >
-        {result ? percent : "–"}
-      </span>
-    </div>
-  );
-}
-
 function RuleRow({ rule, result }: { rule: Rule; result?: RuleResult }) {
-  if (rule.type === "noul") {
-    return (
-      <li className="flex gap-3 py-3.5">
-        <Mark result={result?.type === "noul" ? result : undefined} />
-        <span>{rule.text}</span>
-      </li>
-    );
-  }
   return (
-    <li className="py-3.5">
+    <li className="flex gap-3 py-3.5">
+      <Mark result={result} />
       <span>{rule.text}</span>
-      <ScoreBar result={result?.type === "score" ? result : undefined} />
     </li>
   );
 }
